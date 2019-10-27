@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
 
 	std::string config_filename;
 	std::string image_filename;
-	int workers = 1;
+	int workers = 4;
 
 	app.add_option("-c,--config", config_filename, "configuration file")->check(CLI::ExistingFile)->required();
 	app.add_option("-i,--image", image_filename, "image file")->check(CLI::ExistingFile)->required();
@@ -44,8 +44,13 @@ int main(int argc, char* argv[]) {
 	auto scaled_image = pixScale(image, scale, scale);
 	std::cout << "w = " << scaled_image->w << " h = " << scaled_image->h << std::endl;
 
-	Ocr_classifier classifier("fra");
-	classifier.set_classes(map);
-	std::cout << classifier.classifiy(scaled_image) << std::endl;
+	try {
+		Ocr_classifier classifier("fra", workers);
+		classifier.set_classes(map);
+		std::cout << classifier.classifiy(scaled_image) << std::endl;
+	}
+	catch (std::exception& e) {
+		std::cout << e.what() << std::endl;
+	}
 	return 0;
 }

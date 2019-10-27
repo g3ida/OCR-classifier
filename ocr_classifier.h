@@ -10,15 +10,29 @@
 #include <mutex>
 #include <chrono>
 #include "east_detector.h"
+#include <future>
 
 
 class Ocr_classifier {
 public :
-	Ocr_classifier(std::string_view lang) : lang_(lang) {
+
+	Ocr_classifier(std::string_view lang, int num_threads = 1) : lang_(lang) {
+		
 		api_ = new tesseract::TessBaseAPI();
 		if (api_->Init(NULL, lang.data())) {
 			fprintf(stderr, "Could not initialize tesseract.\n");
-			exit(1);
+			throw "could not inititialize tesseract";
+		}
+
+		if (num_threads > 1) {
+			for (int i = 0; i < num_threads-1; i++) {
+				auto api = new tesseract::TessBaseAPI();
+				if (api->Init(NULL, lang.data())) {
+					fprintf(stderr, "Could not initialize tesseract.\n");
+					throw "could not inititialize tesseract";
+				}
+				sub_api_.emplace_back(std::move(api));
+			}
 		}
 	}
 	
@@ -30,7 +44,15 @@ public :
 	}
 
 	std::string classifiy(PIX* image) {
-		auto text = apply_full_ocr_(image);
+
+		std::string text;
+		if (sub_api_.size() > 0) {
+			text = apply_line_ocr_(image);
+		}
+		else {
+			text = apply_full_ocr_(image);
+		}
+
 		for (int i = 0; i < classes_.size(); i++) {
 			int ocrs = 0;
 			for (auto& word : class_words_[i]) {
@@ -71,50 +93,54 @@ private :
 	std::string apply_line_ocr_(PIX* image) {
 		auto start = std::chrono::high_resolution_clock::now();
 		
-		api_->SetImage(image);
-		Boxa* boxes = api_->GetComponentImages(tesseract::RIL_TEXTLINE, true, NULL, NULL);
-		int epsilon = 5;
-		if (boxes) {
-			printf("Found %d textline image components.\n", boxes->n);
-			std::vector<std::string> results;
-			std::mutex m;
-			std::for_each(
-				std::execution::par_unseq,
-				boxes->box,
-				boxes->box + boxes->n,
-				[&](auto&& b)
-			{
-				tesseract::TessBaseAPI* api = new tesseract::TessBaseAPI();
-				if (api->Init(NULL, lang_.data())) {
-					auto box = boxClone(b);
-					api->SetImage(pixClipRectangle(image, box, NULL));
-					char* ocrResult = api_->GetUTF8Text();
-					int conf = api_->MeanTextConf();
-					std::string s(ocrResult);
-					m.lock();
-					results.push_back(ocrResult);
-					m.unlock();
-					fprintf(stdout, "Box[]: x=%d, y=%d, w=%d, h=%d, confidence: %d, text: %s",
-						box->x, box->y, box->w, box->h, conf, ocrResult);
-					delete[] ocrResult;
-					delete api;
-				}
-			});
-			
-			std::string returned;
-			for (const auto& elem : results) returned += '\n' + elem;
+		auto max_boxes_h = image->h / 300ULL;
+		auto boxes_h = std::min(max_boxes_h, image->h / (sub_api_.size() + 1));
+
+		auto step = image->h / boxes_h;
+		auto padding = 75;
+		BOX* region = boxCreate(0, 0, image->w, step + padding);
+		PIX* imgCrop = pixClipRectangle(image, region, NULL);
+		api_->SetImage(imgCrop);
 		
-			auto stop = std::chrono::high_resolution_clock::now();
-			auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-			std::cout << "ocr time : " << duration.count() << std::endl;
-			
-			return returned;
+		std::vector<std::future<std::string>> futures;
+
+		futures.emplace_back(std::async(std::launch::async,
+			[&]() {
+			char* text = api_->GetUTF8Text();
+			std::string result(text);
+			delete[] text;
+			return result;
+		}));
 		
-		
+		for (int i = 0; i < sub_api_.size(); i++) {
+			BOX* region = boxCreate(0, (i + 1) * step, image->w, (i + 2) * step + padding);
+			auto api = sub_api_[i];
+			futures.emplace_back(std::async(std::launch::async,
+				[=]() {
+				PIX* imgCrop = pixClipRectangle(image, region, NULL);
+				api->SetImage(imgCrop);
+				char* text = api->GetUTF8Text();
+				std::string result(text);
+				delete[] text;
+				return result;
+			}));
 		}
+
+		std::string result_string;
+		for (auto& f : futures) {
+			auto str = f.get();
+			std::cout << str << std::endl;
+			result_string.append(str);
+		}
+		
+		auto stop = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+		std::cout << "ocr time : " << duration.count() << std::endl;
+		
+		return result_string;
 	}
 
-
+	std::vector<tesseract::TessBaseAPI*> sub_api_;
 	std::string lang_ = "eng";
 	std::vector<std::string> classes_;
 	std::vector<std::vector<std::string>> class_words_;

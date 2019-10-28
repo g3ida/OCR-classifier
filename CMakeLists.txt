@@ -10,6 +10,8 @@ project( ocr_classifier )
 find_package( OpenCV REQUIRED )
 find_package( Tesseract REQUIRED )
 
+
+include_directories(extern/)
 include_directories(${Tesseract_INCLUDE_DIRS})
 include_directories(${Leptonica_INCLUDE_DIRS})
 

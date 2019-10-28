@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <string.h>
 #include <string_view>
+#include <leptonica/allheaders.h>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 
 int levinstein_distance(std::string_view s1, std::string_view s2) {
 	int i, j, l1, l2, t, track;
@@ -32,3 +35,37 @@ int levinstein_distance(std::string_view s1, std::string_view s2) {
 	}
 	return dist[l2][l1];
 }
+
+
+Pix* mat8ToPix(cv::Mat* mat8)
+{
+	Pix* pixd = pixCreate(mat8->size().width, mat8->size().height, 8);
+	for (int y = 0; y < mat8->rows; y++) {
+		for (int x = 0; x < mat8->cols; x++) {
+			pixSetPixel(pixd, x, y, (l_uint32)mat8->at<uchar>(y, x));
+		}
+	}
+	return pixd;
+}
+
+cv::Mat pix8ToMat(Pix* pix8)
+{
+	cv::Mat mat(cv::Size(pix8->w, pix8->h), CV_8UC1);
+	uint32_t* line = pix8->data;
+	for (uint32_t y = 0; y < pix8->h; ++y) {
+		for (uint32_t x = 0; x < pix8->w; ++x) {
+			mat.at<uchar>(y, x) = GET_DATA_BYTE(line, x);
+		}
+		line += pix8->wpl;
+	}
+	return mat;
+}
+
+cv::Rect rect_add_margin(cv::Rect rec, int margin) {
+	rec.x = std::max(rec.x - margin , 0);
+	rec.y = std::max(rec.y - margin, 0);
+	rec.width += margin;
+	rec.height += margin;
+	return rec;
+}
+

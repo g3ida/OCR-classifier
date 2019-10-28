@@ -4,14 +4,14 @@
 #include <iostream>
 
 #include "ocr_classifier.h"
-
+#include "east_detector.h"
 
 int main(int argc, char* argv[]) {
 	CLI::App app{ "OCR Classifier" };
 
 	std::string config_filename;
 	std::string image_filename;
-	int workers = 4;
+	int workers = 2;
 
 	app.add_option("-c,--config", config_filename, "configuration file")->check(CLI::ExistingFile)->required();
 	app.add_option("-i,--image", image_filename, "image file")->check(CLI::ExistingFile)->required();

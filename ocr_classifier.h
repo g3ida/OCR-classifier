@@ -9,9 +9,8 @@
 #include <execution>
 #include <mutex>
 #include <chrono>
-#include "east_detector.h"
 #include <future>
-
+#include "east_detector.h"
 
 class Ocr_classifier {
 public :
@@ -33,6 +32,27 @@ public :
 			classes_.push_back(cls);
 			class_words_.push_back(words);
 		}
+	}
+
+	std::string dectect_and_classify(PIX* image) {
+		// initialization should be splitted from here
+		EAST_detector detector(512);
+		detector.load_model("frozen_east_text_detection.pb");
+		auto mat = pix8ToMat(image);
+		cv::cvtColor(mat, mat, cv::COLOR_GRAY2BGR); //just a hack need to get back color
+		auto detection = detector.detect(mat);
+		char i = 40;
+		for (auto rec : detection) {
+			i++;
+			auto roi = mat(rect_add_margin(rec.boundingRect(), 10));
+			cv::imwrite( std::string("")+i+"_.jpg", roi);
+			cv::cvtColor(roi, roi, cv::COLOR_BGR2RGBA);
+			sub_api_[0]->SetImage(roi.data, roi.cols, roi.rows, 4, 4 * roi.cols);
+			char* text = sub_api_[0]->GetUTF8Text();
+			std::cout << text << std::endl;
+			delete[] text;
+		}
+		return "";
 	}
 
 	std::string classifiy(PIX* image) {
@@ -80,7 +100,7 @@ private :
 			auto api = sub_api_[i];
 			futures.emplace_back(std::async(std::launch::async,
 				[=]() {
-				PIX* imgCrop = pixClipRectangle(image, region, NULL);
+				PIX* imgCrop = pixClipRectangle(image, region, NULL);				
 				api->SetImage(imgCrop);
 				char* text = api->GetUTF8Text();
 				std::string result(text);

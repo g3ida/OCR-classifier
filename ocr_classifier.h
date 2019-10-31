@@ -15,7 +15,8 @@
 class Ocr_classifier {
 public :
 
-	Ocr_classifier(std::string_view lang, int num_threads = 1) : lang_(lang) {
+	Ocr_classifier(std::string_view lang, int num_threads = 1, bool use_east_detector = false) : 
+		lang_(lang), use_east_detector_(use_east_detector) {
 		
 		for (int i = 0; i < num_threads; i++) {
 			auto api = new tesseract::TessBaseAPI();
@@ -34,30 +35,9 @@ public :
 		}
 	}
 
-	std::string dectect_and_classify(PIX* image) {
-		// initialization should be splitted from here
-		EAST_detector detector(512);
-		detector.load_model("frozen_east_text_detection.pb");
-		auto mat = pix8ToMat(image);
-		cv::cvtColor(mat, mat, cv::COLOR_GRAY2BGR); //just a hack need to get back color
-		auto detection = detector.detect(mat);
-		char i = 40;
-		for (auto rec : detection) {
-			i++;
-			auto roi = mat(rect_add_margin(rec.boundingRect(), 10));
-			cv::imwrite( std::string("")+i+"_.jpg", roi);
-			cv::cvtColor(roi, roi, cv::COLOR_BGR2RGBA);
-			sub_api_[0]->SetImage(roi.data, roi.cols, roi.rows, 4, 4 * roi.cols);
-			char* text = sub_api_[0]->GetUTF8Text();
-			std::cout << text << std::endl;
-			delete[] text;
-		}
-		return "";
-	}
-
 	std::string classifiy(PIX* image) {
 
-		std::string text = apply_ocr_(image);
+		std::string text = use_east_detector_ ? apply_ocr_after_east_detector_(image) : apply_ocr_(image);
 
 		for (int i = 0; i < classes_.size(); i++) {
 			int ocrs = 0;
@@ -123,9 +103,32 @@ private :
 		return result_string;
 	}
 
+
+
+	std::string apply_ocr_after_east_detector_(PIX* image) {
+		// initialization should be splitted from here
+		EAST_detector detector(320);
+		detector.load_model("frozen_east_text_detection.pb");
+		auto mat = pix1_to_mat(image);
+		cv::cvtColor(mat, mat, cv::COLOR_GRAY2BGR); //just a hack need to get back color
+		auto detection = detector.detect(mat);
+		std::string result;
+		for (auto rec : detection) {
+			auto roi = mat(rect_add_margin(rec.boundingRect(), 5));
+			cv::cvtColor(roi, roi, cv::COLOR_BGR2RGBA);
+			sub_api_[0]->SetImage(roi.data, roi.cols, roi.rows, 4, 4 * roi.cols);
+			char* text = sub_api_[0]->GetUTF8Text();
+			result.append(text);
+			delete[] text;
+		}
+		return result;
+	}
+
+
 	std::vector<tesseract::TessBaseAPI*> sub_api_;
 	std::string lang_ = "eng";
 	std::vector<std::string> classes_;
 	std::vector<std::vector<std::string>> class_words_;
 	std::vector<int> occurences_;
+	bool use_east_detector_ = false;
 };

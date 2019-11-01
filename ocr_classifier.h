@@ -37,7 +37,7 @@ public :
 
 	std::string classifiy(PIX* image) {
 
-		std::string text = use_east_detector_ ? apply_ocr_after_east_detector_(image) : apply_ocr_(image);
+		std::string text = use_east_detector_ ? apply_ocr_after_east_detector(image) : apply_ocr(image);
 
 		for (int i = 0; i < classes_.size(); i++) {
 			int ocrs = 0;
@@ -62,15 +62,14 @@ public :
 			delete api;	
 		}
 	}
-private :
 
-	std::string apply_ocr_(PIX* image) {
+	std::string apply_ocr(PIX* image) {
 		auto start = std::chrono::high_resolution_clock::now();
 
 		auto max_boxes_h = image->h / 300ULL;
 		auto boxes_h = std::min(max_boxes_h, sub_api_.size());
 
-		auto step = image->h / boxes_h;
+		auto step =  boxes_h == 0 ? image->h : image->h / boxes_h;
 		auto padding = 75;
 
 		std::vector<std::future<std::string>> futures;
@@ -84,6 +83,7 @@ private :
 				api->SetImage(imgCrop);
 				char* text = api->GetUTF8Text();
 				std::string result(text);
+				pixDestroy(&imgCrop);
 				delete[] text;
 				return result;
 			}));
@@ -105,7 +105,7 @@ private :
 
 
 
-	std::string apply_ocr_after_east_detector_(PIX* image) {
+	std::string apply_ocr_after_east_detector(PIX* image) {
 		// initialization should be splitted from here
 		EAST_detector detector(320);
 		detector.load_model("frozen_east_text_detection.pb");
@@ -124,6 +124,7 @@ private :
 		return result;
 	}
 
+private:
 
 	std::vector<tesseract::TessBaseAPI*> sub_api_;
 	std::string lang_ = "eng";

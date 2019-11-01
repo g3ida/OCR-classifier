@@ -3,6 +3,8 @@
 #include <math.h>
 #include <algorithm>
 #include <string.h>
+#include <vector>
+#include <string>
 #include <string_view>
 #include <leptonica/allheaders.h>
 #include <opencv2/imgproc.hpp>
@@ -116,16 +118,13 @@ cv::Mat pix1_to_mat(Pix* pix8)
 	//Convert the pix to the 8 depth
 	PIX* pixd = nullptr;
 
-	if (pix8->d == 1)
-	{
+	if (pix8->d == 1) {
 		pixd = pixConvert1To8(NULL, pix8, 255, 0);
 	}
-	if (pix8->d == 32)
-	{
+	else if (pix8->d == 32) {
 		pixd = pixConvert32To8(pix8, L_MS_TWO_BYTES, L_MS_BYTE);
 	}
-	if (pixd == nullptr)
-	{
+	else if (pixd == nullptr) {
 		throw "error";
 	}
 
@@ -151,3 +150,21 @@ cv::Rect rect_add_margin(cv::Rect rec, int margin) {
 	return rec;
 }
 
+bool is_supported_image_file_extension(std::string_view extension) {
+	return (extension == ".bmp" || extension == ".tiff" || extension == ".png"
+		|| extension == ".jpeg" || extension == ".jpg" || extension == ".pnm"
+		|| extension == ".gif" || extension == ".webp");
+}
+
+
+std::vector<std::string> split_string(const std::string& s, char delimiter)
+{
+	std::vector<std::string> tokens;
+	std::string token;
+	std::istringstream tokenStream(s);
+	while (std::getline(tokenStream, token, delimiter))
+	{
+		tokens.push_back(token);
+	}
+	return tokens;
+}

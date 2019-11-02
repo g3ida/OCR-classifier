@@ -44,13 +44,14 @@ public :
 			for (auto& word : class_words_[i]) {
 				if (text.find(word) != -1) {
 					ocrs++;
-					std::cout << "found " << word << std::endl;
+					std::cout << "matched : " << word << std::endl;
 				}
 			}
 			occurences_.push_back(ocrs);
 		}
-		for (auto i : occurences_) {
-			std::cout << "=" << i << std::endl;
+		for (auto i = 0; i < occurences_.size(); i++) {
+			std::cout << classes_[i] << " score : " << occurences_[i] << '/' << class_words_[i].size() 
+				<< " (" << (float)occurences_[i]/ class_words_[i].size()  << ")" <<std::endl;
 		}
 		return classes_[std::distance(occurences_.begin(), std::max_element(occurences_.begin(), occurences_.end()))];
 	}

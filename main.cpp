@@ -14,7 +14,9 @@ int main(int argc, char* argv[]) {
 	std::string dir_filename;
 	std::string config_filename;
 	std::string image_filename;
-	int workers = 2;
+	std::string lang{ "eng" };
+	float aquisition_rate{ 0.2f };
+	int workers{ 2 };
 
 	app.require_subcommand();
 	auto extract_command = app.add_subcommand("extract", "extract relevant words from image files located in "
@@ -22,22 +24,24 @@ int main(int argc, char* argv[]) {
 	auto predict_command = app.add_subcommand("predict", "predict the class of the image based on a json file "
 															"containing relevant words for each class.");
 	
+	//common options
+	app.add_option("-l, --lang", lang, "OCR language");
+	app.add_option("-w,--workers", workers, "workers threads")->check(CLI::PositiveNumber);
 	//the extract command options
 	extract_command->add_option("-d,--dir", dir_filename, "directory consisting of  sub-directories containing "
 												       "images for each class")->required()->check(CLI::ExistingDirectory);
 	extract_command->add_option("-o,--output", config_filename, "output json file")->required();
-	
+	extract_command->add_option("-r,--aquisition_rate", aquisition_rate, "words occuring belew that rate will get removed");
 	//the predict command options
 	predict_command->add_option("-c,--config", config_filename, "configuration file")->check(CLI::ExistingFile)->required();
 	predict_command->add_option("-i,--image", image_filename, "image file")->check(CLI::ExistingFile)->required();
-	predict_command->add_option("-w,--workers", workers, "workers threads")->check(CLI::PositiveNumber);
 
 	CLI11_PARSE(app, argc, argv);
 
 	if (!dir_filename.empty()) { //need to find a better way to do this
-		Ocr_words_extractor extractor("sample_folder");
-		extractor.process("eng", 2);
-		extractor.save("extracted.json");
+		Ocr_words_extractor extractor(dir_filename);
+		extractor.process(lang, workers, aquisition_rate);
+		extractor.save(config_filename);
 	}
 	else {
 		std::ifstream config(config_filename);
@@ -65,7 +69,7 @@ int main(int argc, char* argv[]) {
 		std::cout << "w = " << scaled_image->w << " h = " << scaled_image->h << std::endl;
 
 		
-		Ocr_classifier classifier("fra", workers);
+		Ocr_classifier classifier(lang, workers);
 		classifier.set_classes(map);
 		std::cout << classifier.classifiy(scaled_image) << std::endl;
 	}

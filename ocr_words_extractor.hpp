@@ -21,7 +21,7 @@ public :
 		assert(fs::is_directory(dir));
 	}
 
-	void process(std::string_view lang, int num_threads) {
+	void process(std::string_view lang = "eng", int num_threads = 1, float aquisition_rate = 0.2f) {
 		
 		Ocr_classifier ocr_classifier(lang, num_threads);
 		std::vector<std::map<std::string, int>> words_maps;
@@ -45,7 +45,7 @@ public :
 				auto words_count_map = merge_document_words(documents_words);
 				
 				std::vector<std::string> tmp;
-				auto min_repeats = treated_documents / 8.f; //maybe make it a parameter
+				auto min_repeats = treated_documents * aquisition_rate; //maybe make it a parameter
 				for (auto& el : words_count_map) {
 					if (el.second >= min_repeats) {
 						tmp.emplace_back(el.first);

@@ -168,3 +168,11 @@ std::vector<std::string> split_string(const std::string& s, char delimiter)
 	}
 	return tokens;
 }
+
+PIX* scale_image(PIX* image, float max_size) {
+
+	float max_dim = std::max(image->w, image->h);
+	auto scale = std::min(max_size / max_dim, 1.f);
+	auto scaled_image = pixScale(image, scale, scale);
+	return scaled_image;
+}

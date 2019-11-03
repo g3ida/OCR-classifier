@@ -3,8 +3,8 @@
 #include <leptonica/allheaders.h>
 #include <iostream>
 
-#include "ocr_classifier.h"
-#include "east_detector.h"
+#include "ocr_classifier.hpp"
+#include "east_detector.hpp"
 #include "ocr_words_extractor.hpp"
 
 auto load_config(std::string config_filename) {

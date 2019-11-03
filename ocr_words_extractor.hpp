@@ -10,7 +10,7 @@
 
 #include <leptonica/allheaders.h>
 
-#include "ocr_classifier.h"
+#include "ocr_classifier.hpp"
 #include "json.hpp"
 
 namespace fs = std::filesystem;

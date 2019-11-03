@@ -13,7 +13,7 @@
 #include <future>
 #include <mutex>
 #include <shared_mutex>
-#include "east_detector.h"
+#include "east_detector.hpp"
 
 class Ocr_classifier {
 public :

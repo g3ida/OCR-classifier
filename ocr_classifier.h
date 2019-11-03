@@ -144,7 +144,7 @@ public :
 			Boxa* boxes = sub_api_[0]->GetComponentImages(tesseract::RIL_TEXTLINE, true, NULL, NULL);
 			 
 			if (boxes == nullptr) {
-				delete[] image;
+				pixDestroy(&image);
 				continue;
 			}
 			auto boxes_per_api = boxes->n / sub_api_.size();
@@ -175,7 +175,7 @@ public :
 			for (auto& future : api_futures_) {
 				future.get();
 			}
-			delete[] image;
+			pixDestroy(&image);
 			//check for early stopping
 			if (early_stopping_verified()) {
 				break;

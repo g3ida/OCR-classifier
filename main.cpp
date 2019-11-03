@@ -17,6 +17,7 @@ int main(int argc, char* argv[]) {
 	std::string lang{ "eng" };
 	float aquisition_rate{ 0.2f };
 	int workers{ 2 };
+	bool use_early_stopping = false;
 
 	app.require_subcommand();
 	auto extract_command = app.add_subcommand("extract", "extract relevant words from image files located in "
@@ -35,6 +36,7 @@ int main(int argc, char* argv[]) {
 	//the predict command options
 	predict_command->add_option("-c,--config", config_filename, "configuration file")->check(CLI::ExistingFile)->required();
 	predict_command->add_option("-i,--image", image_filename, "image file")->check(CLI::ExistingFile)->required();
+	predict_command->add_option("-e,--e", use_early_stopping, "enable early stopping");
 
 	CLI11_PARSE(app, argc, argv);
 
@@ -69,7 +71,7 @@ int main(int argc, char* argv[]) {
 		std::cout << "w = " << scaled_image->w << " h = " << scaled_image->h << std::endl;
 
 		
-		Ocr_classifier classifier(lang, workers);
+		Ocr_classifier classifier(lang, workers, use_early_stopping);
 		classifier.set_classes(map);
 		std::cout << classifier.classifiy(scaled_image) << std::endl;
 	}

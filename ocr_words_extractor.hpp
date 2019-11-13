@@ -22,7 +22,8 @@ public :
 	}
 
 	void process(std::string_view lang = "eng", int num_threads = 1, float aquisition_rate = 0.2f) {
-		
+		class_words_.clear();
+		classes_.clear();
 		Ocr_classifier ocr_classifier(lang, num_threads);
 		std::vector<std::map<std::string, int>> words_maps;
 		
@@ -54,6 +55,7 @@ public :
 				class_words_.emplace_back(std::move(tmp));
 			}
 		}
+		compute_class_words_weights();
 	}
 
 	std::map<std::string, int> merge_document_words(std::vector<std::vector<std::string>> documents_words) {
@@ -61,7 +63,7 @@ public :
 		for (auto& doc_words : documents_words) {
 			for (auto& word : doc_words) {
 				if (res_map.find(word) == res_map.end()) {
-					res_map[word] = 0;
+					res_map[word] = 1;
 				}
 				else {
 					res_map[word]++;
@@ -79,11 +81,16 @@ public :
 			std::vector<std::string> captured_words;
 			captured_words = split_string(line, ' ');
 			if (captured_words.size() == 1) {
-				result.emplace_back(captured_words[0]);
+				if (captured_words[0].size() > 4) {
+					result.emplace_back(captured_words[0]);
+				}
 			}
 			else if (captured_words.size() != 0) {
 				for (int i = 0; i < captured_words.size() - 1; i++) {
-					result.emplace_back(captured_words[i] + ' ' + captured_words[i + 1]);
+					auto s = captured_words[i] + ' ' + captured_words[i + 1];
+					if (s.size() > 4) {
+						result.emplace_back(s);
+					}
 				}
 			}
 			
@@ -93,10 +100,32 @@ public :
 		return result;
 	}
 
+	void compute_class_words_weights() {
+		std::map<std::string, int> words;
+		for (int i = 0; i < class_words_.size(); i++) {
+			for (auto w : class_words_[i]) {
+				if (words.find(w) != words.end()) {
+					words[w]++;
+				}
+				else {
+					words[w] = 1;
+				}
+			}
+		}
+		class_words_weights_.clear();
+		for (int i = 0; i < class_words_.size(); i++) {
+			class_words_weights_.emplace_back(std::vector<int>());
+			for (int j = 0; j < class_words_[i].size(); j++) {
+				class_words_weights_[i].emplace_back(words[class_words_[i][j]]);
+			}
+		}
+	}
+
 	void save(std::string_view path) {
 		nlohmann::json j;
 		j["classes"] = classes_;
 		j["words"] = class_words_;
+		j["words_weights"] = class_words_weights_;
 		std::ofstream ofs(path);
 		ofs << j.dump();
 		ofs.close();
@@ -106,4 +135,5 @@ private :
 	std::string_view dir_name_;
 	std::vector<std::string> classes_;
 	std::vector<std::vector<std::string>> class_words_;
+	std::vector<std::vector<int>> class_words_weights_;
 };

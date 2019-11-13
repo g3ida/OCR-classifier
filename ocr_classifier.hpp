@@ -31,16 +31,23 @@ public :
 		}
 	}
 	
-	void set_classes(std::map<std::string, std::vector<std::string>> classes) {
+	void set_classes(std::map<std::string, std::vector<std::string>> classes,
+		std::vector<std::vector<int>> class_words_occurences) {
 		for (auto [cls, words] : classes) {
 			classes_.push_back(cls);
 			class_words_.push_back(words);
 		}
+		class_words_weights_ = class_words_occurences;
+
 	}
 
 	std::string classifiy(PIX* image) {
 
-		std::string text = use_early_stopping_ ? ocr_with_early_stopping(image) : apply_ocr(image);
+		if (use_early_stopping_) {
+			return ocr_with_early_stopping(image);
+		}
+
+		std::string text = apply_ocr(image);
 		reset_occurences_list();
 		match_occurences(text);
 		for (auto i = 0; i < occurences_.size(); i++) {
@@ -54,6 +61,8 @@ public :
 		total_matched_ = 0;
 		occurences_.clear();
 		occurences_.resize(class_words_.size(), 0);
+		class_num_unique_words_found_.clear();
+		class_num_unique_words_found_.resize(class_words_.size(), 0);
 		found_words_.clear();
 		found_words_.resize(class_words_.size(), std::vector<bool>());
 		for (int i = 0; i < class_words_.size(); i++) {
@@ -70,6 +79,10 @@ public :
 					if (found_words_[i][j] == false) {
 						rl.unlock();
 						ocrs++;
+						if (class_words_weights_[i][j] == 1) {
+							class_num_unique_words_found_[i]++;
+							std::cout << "FOUND UNIQUE WORD : " << class_words_[i][j] << " " << i << std::endl;
+						}
 						WriteLock wl(words_loc);
 						found_words_[i][j] = true;
 					}
@@ -125,8 +138,19 @@ public :
 
 
 	inline bool early_stopping_verified() {
-		return  (occurences_[most_matched_class_] > class_words_[most_matched_class_].size()*0.1f &&
-			occurences_[most_matched_class_] - occurences_[second_most_matched_class_] > occurences_[second_most_matched_class_]);
+		
+
+		auto most_matched_class_ = std::distance(class_num_unique_words_found_.begin(), std::max_element(class_num_unique_words_found_.begin(), class_num_unique_words_found_.end()));
+			if (class_num_unique_words_found_[most_matched_class_] > 4) {
+				std::cout << most_matched_class_ << std::endl;
+				std::cout << "================\n";
+				return true;
+		}
+		return false;
+
+		//return (class_num_unique_words_found_[most_matched_class_] > 10);// ||
+			//(occurences_[most_matched_class_] > class_words_[most_matched_class_].size()*0.2f &&
+			//occurences_[most_matched_class_] - occurences_[second_most_matched_class_] > occurences_[second_most_matched_class_]);
 	}
 
 	std::string ocr_with_early_stopping(PIX* input_image) {
@@ -191,7 +215,8 @@ public :
 			std::cout << classes_[i] << " score : " << occurences_[i] << '/' << class_words_[i].size()
 				<< " (" << (float)occurences_[i] / class_words_[i].size() << ")" << std::endl;
 		}
-		return classes_[std::distance(occurences_.begin(), std::max_element(occurences_.begin(), occurences_.end()))];
+		std::cout << "MOST MATCHED " << most_matched_class_ << std::endl;
+		return classes_[most_matched_class_];
 
 	}
 
@@ -263,7 +288,9 @@ private:
 	std::string lang_ = "eng";
 	std::vector<std::string> classes_;
 	std::vector<std::vector<std::string>> class_words_;
+	std::vector<std::vector<int>> class_words_weights_;
 	std::vector<std::vector<bool>> found_words_;
+	std::vector<int> class_num_unique_words_found_;
 	int total_matched_ = 0;
 	int most_matched_class_ = 0;
 	int second_most_matched_class_ = 0;

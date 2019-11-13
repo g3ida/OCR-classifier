@@ -14,14 +14,16 @@ auto load_config(std::string config_filename) {
 
 	std::vector<std::string> classes;
 	std::vector<std::vector<std::string>>  words;
+	std::vector<std::vector<int>> class_words_weights;
 	j.at("classes").get_to(classes);
 	j.at("words").get_to(words);
+	j.at("words_weights").get_to(class_words_weights);
 
 	std::map<std::string, std::vector<std::string>> map;
 	// create map
 	std::transform(classes.begin(), classes.end(), words.begin(), std::inserter(map, map.end()),
 		[](auto a, auto b) { return std::make_pair(a, b); });
-	return map;
+	return std::make_pair(map, class_words_weights);
 }
 
 int main(int argc, char* argv[]) {
@@ -57,12 +59,12 @@ int main(int argc, char* argv[]) {
 	//the predict command options
 	predict_command->add_option("-c,--config", config_filename, "configuration file")->check(CLI::ExistingFile)->required();
 	predict_command->add_option("-i,--image", image_filename, "image file")->check(CLI::ExistingFile)->required();
-	predict_command->add_option("-e,--e", use_early_stopping, "enable early stopping");
+	predict_command->add_option("-e,--early_stopping", use_early_stopping, "enable early stopping");
 	//the classf=ify command options
 	classify_command->add_option("-d,--dir", images_dir, "directory containing images to classify")->check(CLI::ExistingDirectory)->required();
 	classify_command->add_option("-c,--config", config_filename, "configuration file")->check(CLI::ExistingFile)->required();
 	classify_command->add_option("-o,--output", output_dir, "output directory")->check(CLI::ExistingDirectory)->required();
-	classify_command->add_option("-e,--e", use_early_stopping, "enable early stopping");
+	classify_command->add_option("-e,--early_stopping", use_early_stopping, "enable early stopping");
 
 
 	CLI11_PARSE(app, argc, argv);
@@ -75,12 +77,12 @@ int main(int argc, char* argv[]) {
 	}
 	else if(!output_dir.empty()) {
 		//classify command
-		auto map = load_config(config_filename);
+		auto [map, words_occ] = load_config(config_filename);
 		Ocr_classifier classifier(lang, workers, use_early_stopping);
 		for (auto& el : map) {
 			fs::create_directory(output_dir + '/' + el.first);
 		}
-		classifier.set_classes(std::move(map));
+		classifier.set_classes(std::move(map), std::move(words_occ));
 		for (const auto& entry : fs::directory_iterator(images_dir)) {
 			if (is_supported_image_file_extension(entry.path().extension().string())) {
 				Pix* image = pixRead(entry.path().string().c_str());
@@ -98,13 +100,13 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	else {
-		auto map = load_config(config_filename);
+		auto [map, words_occ] = load_config(config_filename);
 		// Open input image with leptonica library
 		Pix* image = pixRead(image_filename.c_str());
 		auto scaled_image = scale_image(image, 1690.f);
 		pixDestroy(&image);
 		Ocr_classifier classifier(lang, workers, use_early_stopping);
-		classifier.set_classes(map);
+		classifier.set_classes(std::move(map), std::move(words_occ));
 		std::cout << classifier.classifiy(scaled_image) << std::endl;
 		pixDestroy(&scaled_image);
 	}
